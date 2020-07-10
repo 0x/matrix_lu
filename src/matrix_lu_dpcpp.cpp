@@ -1,4 +1,10 @@
 //
+//  matrix_lu_dpcpp.cpp
+//  matrix_lu
+//
+//  Created by Vitaly Koynov on 02/08/20.
+//  Copyright © 2020 Vitaly Koynov. All rights reserved.
+//
 
 #include <CL/sycl.hpp>
 #include <iostream>
@@ -136,10 +142,13 @@ int VerifyResult(double (*c_back)[N]) {
   // LU-decomposition
   for (int i = 0; i < N; i++)
   {
+    // Division step 
     for (int j = i + 1; j < N; j++)
     {
       s_host[j][i] /= s_host[i][i];
     }
+    
+    // Elimination step
     for (int j = i + 1; j < N; j++)
     {
       for (int k = i + 1; k < N; k++)
