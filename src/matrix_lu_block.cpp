@@ -2,9 +2,6 @@
 //  matrix_lu_block.cpp
 //  matrix_lu
 //
-//  Created by Vitaly Koynov on 02/12/20.
-//  Copyright © 2020 Vitaly Koynov. All rights reserved.
-//
 
 #include <iostream>
 #include "dpc_common.hpp"

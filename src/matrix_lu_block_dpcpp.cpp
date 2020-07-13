@@ -2,9 +2,6 @@
 //  matrix_lu_block_dpcpp.cpp
 //  matrix_lu
 //
-//  Created by Vitaly Koynov on 02/12/20.
-//  Copyright © 2020 Vitaly Koynov. All rights reserved.
-//
 
 #include <CL/sycl.hpp>
 #include <iostream>
@@ -398,7 +395,7 @@ int main()
    
       auto accessor = S.get_access<access::mode::write>(h); 
      
-      h.parallel_for(range(N, N), [=](id<2> index) { });
+      h.parallel_for(range(N, N), [=](id<2> index) { 
       for (int i = 0; i < bs; i++)
         for (int j = i + 1; j < bs; j++)
         {
@@ -406,7 +403,7 @@ int main()
           for (int k = i + 1; k < bs; k++) 
         	  (*aa)[j][k] -= (*aa)[j][i] * (*aa)[i][k];
         }
-       //});
+       });
     });
        
     for (int k = i + 1; k < nb; k++) 
