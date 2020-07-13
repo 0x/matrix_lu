@@ -2,9 +2,6 @@
 //  matrix_lu_dpcpp.cpp
 //  matrix_lu
 //
-//  Created by Vitaly Koynov on 02/08/20.
-//  Copyright © 2020 Vitaly Koynov. All rights reserved.
-//
 
 #include <CL/sycl.hpp>
 #include <iostream>
@@ -113,7 +110,7 @@ int main() {
     std::cout << std::endl;
   }
  
-  //result = VerifyResult(LU_back);
+  result = VerifyResult(LU_back);
   delete[] LU_back;
   cout << "Time matrixLUDPCPP: " << matrixLUDPCPP.Elapsed() << std::endl;
   return result;
