@@ -373,10 +373,6 @@ int main()
     for (int j = 0; j < bs; j++)
       aS[i * nb + i][j * bs + j] = nb * bs;
  
-
-  
-
-
   for (int i = 0; i < nb; i++)
   {
   	//proc_lu(bs, (*a)[i][i]);
@@ -388,11 +384,11 @@ int main()
       // Submit command group to queue to division step LU-decomposition matrix S (source)
       q.submit([&](handler &h) {
 
-        auto accessor = aa.get_access<access::mode::read_write>(h);
+        auto AA = aa.get_access<access::mode::read_write>(h);
         
         h.parallel_for(range(bs - i + 1), [=](id<1> idx) {
           int j = i + 1 + idx;
-        	accessor[j][i] /= accessor[i][i];
+        	AA[j][i] /= AA[i][i];
         });
       });
       
@@ -400,13 +396,13 @@ int main()
       // Submit command group to queue to elimination step LU-decomposition matrix S (source)
       q.submit([&](handler &h) {
 
-        auto accessor = aa.get_access<access::mode::read_write>(h);
+        auto AA = aa.get_access<access::mode::read_write>(h);
 
         h.parallel_for(range(bs - i + 1), [=](id<1> idx) {
           int j = i + 1 + idx;
           for (int k = i + 1; k < bs; k++)
           {
-            accessor[j][k] -= accessor[j][i] * accessor[i][k];
+            AA[j][k] -= AA[j][i] * AA[i][k];
           }
         });
       });
