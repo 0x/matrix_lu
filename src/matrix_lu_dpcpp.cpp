@@ -20,7 +20,7 @@ using namespace sycl;
  */
 
 // Matrix size constants.
-constexpr int N = 2500;  // TODO: 2^ 
+constexpr int N = 9;  // TODO: 2^ 
 
 /**
  * Perform matrix multiplication on host to verify results from device.
@@ -102,7 +102,7 @@ int main() {
   int result;
   cout << "Result of matrix LU-decomposition using DPC++: ";
   
-  /* DEBUG
+  // DEBUG
   std::cout << std::endl;
   for (int i = 0; i < N; i++)
   {
@@ -112,7 +112,7 @@ int main() {
     }
     std::cout << std::endl;
   }
- */
+ 
   //result = VerifyResult(LU_back);
   delete[] LU_back;
   cout << "Time matrixLUDPCPP: " << matrixLUDPCPP.Elapsed() << std::endl;
