@@ -6,6 +6,7 @@
 #include <CL/sycl.hpp>
 #include <iostream>
 #include <limits>
+#include <iomanip>
 #include "dpc_common.hpp"
 
 using namespace std;
@@ -17,7 +18,7 @@ using namespace sycl;
  */
 
 // Matrix size constants.
-constexpr int N = 9;  // TODO: 2^ 
+constexpr int N = 4096;  // TODO: 2^ 
 
 /**
  * Perform matrix multiplication on host to verify results from device.
@@ -27,7 +28,7 @@ int VerifyResult(double (*LU_back)[N]);
 int main() {
 
 
-  dpc_common::TimeInterval matrixLUDPCPP;
+  
   // Host memory buffer that device will write data back before destruction.
   double(*LU_back)[N] = new double[N][N];  // LU matrix
 
@@ -36,9 +37,9 @@ int main() {
     for (int j = 0; j < N; j++) LU_back[i][j] = 0.0;
 
 
-
-  // CustomDeviceSelector Selector;
-  cpu_selector d_selector;
+  dpc_common::TimeInterval matrixLUDPCPP;
+  //CustomDeviceSelector Selector;
+  gpu_selector d_selector;
   // Initialize the device queue with the default selector. The device queue is
   // used to enqueue kernels. It encapsulates all states needed for execution.
   try {
@@ -75,7 +76,7 @@ int main() {
 
       auto accessor = S.get_access<access::mode::write>(h);
       
-      h.parallel_for(range(N - i + 1), [=](id<1> idx) {
+      h.parallel_for(range(N - i - 1), [=](id<1> idx) {
         int j = i + 1 + idx;
       	accessor[j][i] /= accessor[i][i];
       });
@@ -87,7 +88,7 @@ int main() {
 
       auto accessor = S.get_access<access::mode::write>(h);
 
-      h.parallel_for(range(N - i + 1), [=](id<1> idx) {
+      h.parallel_for(range(N - i - 1), [=](id<1> idx) {
         int j = i + 1 + idx;
         for (int k = i + 1; k < N; k++)
         {
@@ -106,7 +107,7 @@ int main() {
   cout << "Result of matrix LU-decomposition using DPC++: ";
   
   // DEBUG
-
+  /*
   std::cout << std::endl;
   for (int i = 0; i < N; i++)
   {
@@ -116,10 +117,11 @@ int main() {
     }
     std::cout << std::endl;
   }
-
-  result = VerifyResult(LU_back);
+*/
+  //result = VerifyResult(LU_back);
+  
+  cout << "Time matrixLUDPCPP: "  << matrixLUDPCPP.Elapsed() << std::endl;
   delete[] LU_back;
-  cout << "Time matrixLUDPCPP: " << matrixLUDPCPP.Elapsed() << std::endl;
   return result;
 }
 
@@ -133,6 +135,7 @@ int VerifyResult(double (*c_back)[N]) {
   // 2D arrays on host side.
   double(*s_host)[N] = new double[N][N];
 
+  dpc_common::TimeInterval matrixLU;
   // Each element of matrix a is 1.
   // Diag elements is N.
   for (int i = 0; i < N; i++)
@@ -161,7 +164,7 @@ int VerifyResult(double (*c_back)[N]) {
       }
     }
   }
-
+  cout << "Time matrixLU: " << matrixLU.Elapsed() << std::endl;
   bool mismatch_found = false;
 
   // Compare host side results with the result buffer from device side: print
