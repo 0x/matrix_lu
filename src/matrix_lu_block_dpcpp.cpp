@@ -11,8 +11,6 @@
 using namespace std;
 using namespace sycl;
  
-constexpr int N = 9;
-
 // in: a[n][n] : lu-decomposition
 void proc_lu(const int n, double *a1d)
 {
@@ -270,83 +268,10 @@ void print_matrix(int nb, int bs, double **a)
     }
 }
  
-bool ValueSame(double a, double b) {
-  return fabs(a - b) < numeric_limits<double>::epsilon();
-}
-
-int VerifyResult(int nb, int bs, double **c_back) {
-  // Check that the results are correct by comparing with host computing.
-
-  // 2D arrays on host side.
-  double(*s_host)[N] = new double[N][N];
-
-  // Each element of matrix a is 1.
-  // Diag elements is N.
-  for (int i = 0; i < nb*bs; i++)
-  {
-    for (int j = 0; j < nb*bs; j++)
-    {
-      s_host[i][j] = (i== j)?(nb*bs):1.0;
-    }
-  }
-  
-  // LU-decomposition
-  for (int i = 0; i < nb*bs; i++)
-  {
-    // Division step 
-    for (int j = i + 1; j < nb*bs; j++)
-    {
-      s_host[j][i] /= s_host[i][i];
-    }
-    
-    // Elimination step
-    for (int j = i + 1; j < nb*bs; j++)
-    {
-      for (int k = i + 1; k < nb*bs; k++)
-      {
-        s_host[j][k] -= s_host[j][i] * s_host[i][k];
-      }
-    }
-  }
-
-  bool mismatch_found = false;
-
-  // Compare host side results with the result buffer from device side: print
-  // mismatched data 5 times only.
-  int print_count = 0;
-  for (int ib = 0; ib < nb; ib++){
-    for (int i = 0; i < bs; i++)
-    {
-      for (int jb = 0; jb < nb; jb++)
-        for (int j = 0; j < bs; j++) {
-          if (ValueSame(c_back[ib*nb+jb][i*bs+j], s_host[ib*nb+jb][i*bs+j])) {
-        	cout << "Fail - The result is incorrect for element: [" << i << ", "
-             	<< j << "], expected: " << s_host[ib*nb+jb][i*bs+j]
-             	<< ", but found: " << c_back[ib*nb+jb][i*bs+j] << "\n";
-       		mismatch_found = true;
-        	print_count++;
-        	if (print_count == 5) break;
-      		}  
-        }
-        if (print_count == 5) break;
-    }
-
-}
-  delete[] s_host;
-
-  if (!mismatch_found) {
-    cout << "Success - The results are correct!\n";
-    return 0;
-  } else {
-    cout << "Fail - The results mismatch!\n";
-    return -1;
-  }
-}
-
 int main()
 {
-  const int nb = 3;  // Number of blocks: nb*nb
-  const int bs = 3;  // Block size: bs*bs
+  constexpr int nb = 3;  // Number of blocks: nb*nb
+  constexpr int bs = 3;  // Block size: bs*bs
   
   queue q(default_selector{}, dpc_common::exception_handler);
   cout << "Device: " << q.get_device().get_info<info::device::name>() << "\n";
@@ -360,35 +285,37 @@ int main()
   
   auto a = (double*(*)[nb][nb]) aS;
   
-  // init
+  // Init
   for (int i = 0; i < nb * nb; i++)
   {
     auto a = aS[i];
-    
-    for (int i = 0; i < bs * bs; i++) 
-  	  a[i] = 1.0;
+	for (int j = 0; j < bs * bs; j++) {
+	  a[j] = 1.0;
+	}
   }
      
-  for (int i = 0; i < nb; i++)
-    for (int j = 0; j < bs; j++)
-      aS[i * nb + i][j * bs + j] = nb * bs;
- 
-  for (int i = 0; i < nb; i++)
+	for (int i = 0; i < nb; i++) {
+	  for (int j = 0; j < bs; j++) {
+		  aS[i * nb + i][j * bs + j] = nb * bs;
+	  }
+	}
+  
+  for (int i_glob = 0; i_glob < nb; i_glob++)
   {
   	//proc_lu(bs, (*a)[i][i]);
-    buffer aa(reinterpret_cast<double *>((*a)[i][i]), range(bs, bs));
+    buffer a_lu(reinterpret_cast<double *>((*a)[i_glob][i_glob]), range(bs, bs));
     
-    for (int ii = 0; ii < bs; ii++)
+    for (int i_loc = 0; i_loc < bs; i_loc++)
     {
       // Division step 
       // Submit command group to queue to division step LU-decomposition matrix S (source)
       q.submit([&](handler &h) {
 
-        auto AA = aa.get_access<access::mode::read_write>(h);
+        auto A = a_lu.get_access<access::mode::read_write>(h);
         
-        h.parallel_for(range(bs - ii - 1), [=](id<1> idx) {
-          int j = ii + 1 + idx;
-        	AA[j][ii] /= AA[ii][ii];
+        h.parallel_for(range(bs - i_loc - 1), [=](id<1> index) {
+          int j_loc = i_loc + 1 + index;
+        	A[j_loc][i_loc] /= A[i_loc][i_loc];
         });
       });
       
@@ -396,53 +323,53 @@ int main()
       // Submit command group to queue to elimination step LU-decomposition matrix S (source)
       q.submit([&](handler &h) {
 
-        auto AA = aa.get_access<access::mode::read_write>(h);
+        auto A = a_lu.get_access<access::mode::read_write>(h);
 
-        h.parallel_for(range(bs - ii - 1), [=](id<1> idx) {
-          int j = ii + 1 + idx;
-          for (int k = ii + 1; k < bs; k++)
+        h.parallel_for(range(bs - i_loc - 1), [=](id<1> index) {
+          int j_loc = i_loc + 1 + index;
+          for (int k = i_loc + 1; k < bs; k++)
           {
-            AA[j][k] -= AA[j][ii] * AA[ii][k];
+            A[j_loc][k] -= A[j_loc][i_loc] * A[i_loc][k];
           }
         });
       });
     }
     /*
-       auto aa = (double(*)[bs][bs]) (*a)[i][i];
+       auto A = (double(*)[bs][bs]) (*a)[i][i];
        for (int i = 0; i < bs; i++)
        {
         for (int j = i + 1; j < bs; j++)
-          (*aa)[j][i] /= (*aa)[i][i];
+          (*A)[j][i] /= (*A)[i][i];
  
        for (int j = i + 1; j < bs; j++)
           for (int k = i + 1; k < bs; k++) 
-        	  (*aa)[j][k] -= (*aa)[j][i] * (*aa)[i][k];
+        	  (*A)[j][k] -= (*A)[j][i] * (*aa)[i][k];
        } 
   */
        
-    for (int k = i + 1; k < nb; k++) 
+    for (int k = i_glob + 1; k < nb; k++)
     {
     	// proc_u(bs, bs, (*a)[i][i], (*a)[j][i]);
-      //buffer aa(reinterpret_cast<double *>((*a)[i][i]), range(bs, bs));
-      buffer au(reinterpret_cast<double *>((*a)[i][k]), range(bs, bs));
+      //buffer  a_lu(reinterpret_cast<double *>((*a)[i][i]), range(bs, bs));
+      buffer au(reinterpret_cast<double *>((*a)[i_glob][k]), range(bs, bs));
   
       q.submit([&](handler &h) {
         // Read from al and au, write to ag
-        auto AA = aa.get_access<access::mode::read>(h);
+        auto A = a_lu.get_access<access::mode::read>(h);
         auto AU = au.get_access<access::mode::read_write>(h);
         
-        int width_a = AA.get_range()[1];
+        int width_a = A.get_range()[1];
     	
     	  // Execute kernel.
         h.parallel_for(range(bs, bs), [=](id<2> index) {
           // Get global position in Y direction.
-          int ii = index[0];
+          int row = index[0];
           // Get global position in X direction.
-          int kk = index[1];
+          int col = index[1];
 
           // Compute the result of one element of AL
-          for (int j = ii + 1; j < width_a; j++) {
-    	      AU[j][kk] -=  AA[j][ii] * AA[ii][kk];
+          for (int j = row + 1; j < width_a; j++) {
+    	      AU[j][col] -=  A[j][row] * A[row][col];
     	    }
         });
       });
@@ -457,15 +384,15 @@ int main()
       */
     }     
             
-    for (int j = i + 1; j < nb; j++)
+    for (int j = i_glob + 1; j < nb; j++)
     {
     	// proc_l(bs, bs, (*a)[i][i], (*a)[j][i]);
     	//buffer aa(reinterpret_cast<double *>((*a)[i][i]), range(bs, bs));
-    	buffer al(reinterpret_cast<double *>((*a)[j][i]), range(bs, bs));
+    	buffer al(reinterpret_cast<double *>((*a)[j][i_glob]), range(bs, bs));
 	    
       q.submit([&](handler &h) {
         // Read from al and au, write to ag
-        auto AA = aa.get_access<access::mode::read>(h);
+        auto A = a_lu.get_access<access::mode::read>(h);
         auto AL = al.get_access<access::mode::read_write>(h);
         
         int width_a = AL.get_range()[1];
@@ -473,14 +400,14 @@ int main()
     	  // Execute kernel.
         h.parallel_for(range(bs, bs), [=](id<2> index) {
           // Get global position in Y direction.
-          int jj = index[0];
+          int row = index[0];
           // Get global position in X direction.
-          int ii = index[1];
+          int col = index[1];
 
           // Compute the result of one element of AG
-          AL[jj][ii] /= AA[ii][ii];
-          for (int k = i + 1; k < width_a; k++) {
-    	      AL[jj][k] -=  AL[jj][ii] * AA[ii][k];
+          AL[row][row] /= AA[col][col];
+          for (int k_loc = row + 1; k_loc < width_a; k_loc++) {
+    	      AL[row][k_loc] -=  AL[row][col] * AA[col][k_loc];
     	    }
         });
       });
@@ -498,12 +425,12 @@ int main()
         }
       */
       
-      for (int k = i + 1; k < nb; k++) 
+      for (int k = i_glob + 1; k < nb; k++)
 	    {
 	      // proc_g(bs, bs, bs, (*a)[j][i], (*a)[i][k], (*a)[j][k]);
 	      // It works
 	      //buffer al(reinterpret_cast<double *>((*a)[j][i]), range(bs, bs));
-	      buffer au(reinterpret_cast<double *>((*a)[i][k]), range(bs, bs));
+	      buffer au(reinterpret_cast<double *>((*a)[i_glob][k]), range(bs, bs));
 	      buffer ag(reinterpret_cast<double *>((*a)[j][k]), range(bs, bs));
 	      
 	      q.submit([&](handler &h) {
@@ -522,8 +449,8 @@ int main()
             int col = index[1];
 
             // Compute the result of one element of AG
-            for (int k = 0; k < width_a; k++) {
-              AG[row][col] -= AL[row][k] * AU[k][col];
+            for (int k_loc = 0; k_loc < width_a; k_loc++) {
+              AG[row][col] -= AL[row][k_loc] * AU[k_loc][col];
             }
           });
         });
