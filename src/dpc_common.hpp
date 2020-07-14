@@ -11,6 +11,18 @@
 
 #include <CL/sycl.hpp>
 
+  class NEOGPUDeviceSelector : public cl::sycl::device_selector {
+  public:
+    int operator()(const cl::sycl::device &Device) const override {
+      using namespace cl::sycl::info;
+
+      const std::string DeviceName = Device.get_info<device::name>();
+      const std::string DeviceVendor = Device.get_info<device::vendor>();
+ 	    std::cout << DeviceName << " " << Device.is_gpu() << std::endl;
+      return Device.is_cpu() && (DeviceName.find("Corce") != std::string::npos);
+    }
+  };
+  
 namespace dpc_common {
 // This exception handler with catch async exceptions
 static auto exception_handler = [](cl::sycl::exception_list eList) {

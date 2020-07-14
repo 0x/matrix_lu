@@ -25,6 +25,8 @@ constexpr int N = 9;  // TODO: 2^
 int VerifyResult(double (*LU_back)[N]);
 
 int main() {
+
+
   dpc_common::TimeInterval matrixLUDPCPP;
   // Host memory buffer that device will write data back before destruction.
   double(*LU_back)[N] = new double[N][N];  // LU matrix
@@ -33,11 +35,15 @@ int main() {
   for (int i = 0; i < N; i++)
     for (int j = 0; j < N; j++) LU_back[i][j] = 0.0;
 
+
+
+  NEOGPUDeviceSelector Selector;
+  
   // Initialize the device queue with the default selector. The device queue is
   // used to enqueue kernels. It encapsulates all states needed for execution.
   try {
     
-    queue q(default_selector{}, dpc_common::exception_handler);
+    queue q(Selector, dpc_common::exception_handler);
 
     cout << "Device: " << q.get_device().get_info<info::device::name>() << "\n";
 
@@ -100,6 +106,7 @@ int main() {
   cout << "Result of matrix LU-decomposition using DPC++: ";
   
   // DEBUG
+
   std::cout << std::endl;
   for (int i = 0; i < N; i++)
   {
@@ -109,7 +116,7 @@ int main() {
     }
     std::cout << std::endl;
   }
- 
+
   result = VerifyResult(LU_back);
   delete[] LU_back;
   cout << "Time matrixLUDPCPP: " << matrixLUDPCPP.Elapsed() << std::endl;
