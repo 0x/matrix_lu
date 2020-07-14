@@ -378,7 +378,7 @@ int main()
   	//proc_lu(bs, (*a)[i][i]);
     buffer aa(reinterpret_cast<double *>((*a)[i][i]), range(bs, bs));
     
-    for (int i = 0; i < bs; i++)
+    for (int ii = 0; ii < bs; ii++)
     {
       // Division step 
       // Submit command group to queue to division step LU-decomposition matrix S (source)
@@ -386,9 +386,9 @@ int main()
 
         auto AA = aa.get_access<access::mode::read_write>(h);
         
-        h.parallel_for(range(bs - i + 1), [=](id<1> idx) {
-          int j = i + 1 + idx;
-        	AA[j][i] /= AA[i][i];
+        h.parallel_for(range(bs - ii - 1), [=](id<1> idx) {
+          int j = ii + 1 + idx;
+        	AA[j][ii] /= AA[ii][ii];
         });
       });
       
@@ -398,11 +398,11 @@ int main()
 
         auto AA = aa.get_access<access::mode::read_write>(h);
 
-        h.parallel_for(range(bs - i + 1), [=](id<1> idx) {
-          int j = i + 1 + idx;
-          for (int k = i + 1; k < bs; k++)
+        h.parallel_for(range(bs - ii - 1), [=](id<1> idx) {
+          int j = ii + 1 + idx;
+          for (int k = ii + 1; k < bs; k++)
           {
-            AA[j][k] -= AA[j][i] * AA[i][k];
+            AA[j][k] -= AA[j][ii] * AA[ii][k];
           }
         });
       });
@@ -436,13 +436,13 @@ int main()
     	  // Execute kernel.
         h.parallel_for(range(bs, bs), [=](id<2> index) {
           // Get global position in Y direction.
-          int i = index[0];
+          int ii = index[0];
           // Get global position in X direction.
-          int k = index[1];
+          int kk = index[1];
 
           // Compute the result of one element of AL
-          for (int j = i + 1; j < width_a; j++) {
-    	      AU[j][k] -=  AA[j][i] * AA[i][k];
+          for (int j = ii + 1; j < width_a; j++) {
+    	      AU[j][kk] -=  AA[j][ii] * AA[ii][kk];
     	    }
         });
       });
@@ -473,14 +473,14 @@ int main()
     	  // Execute kernel.
         h.parallel_for(range(bs, bs), [=](id<2> index) {
           // Get global position in Y direction.
-          int j = index[0];
+          int jj = index[0];
           // Get global position in X direction.
-          int i = index[1];
+          int ii = index[1];
 
           // Compute the result of one element of AG
-          AL[j][i] /= AA[i][i];
+          AL[jj][ii] /= AA[ii][ii];
           for (int k = i + 1; k < width_a; k++) {
-    	      AL[j][k] -=  AL[j][i] * AA[i][k];
+    	      AL[jj][k] -=  AL[jj][ii] * AA[ii][k];
     	    }
         });
       });

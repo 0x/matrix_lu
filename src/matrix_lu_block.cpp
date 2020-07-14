@@ -269,8 +269,8 @@ void print_matrix(int nb, int bs, double **a)
 
 int main()
 {
-  const int nb = 50;  // Number of blocks: nb*nb
-  const int bs = 50;  // Block size: bs*bs
+  const int nb = 3;  // Number of blocks: nb*nb
+  const int bs = 3;  // Block size: bs*bs
   
   cout << "Problem size: S(" << nb * bs << "," << nb * bs << ")\n";
   cout << "Block size: (" << bs << "," << bs << ")\n";
@@ -301,7 +301,7 @@ int main()
   cout << "Time matrixMul: " << matrixMul.Elapsed() << std::endl;
  
   //cout << "Source\n"; print_matrix(nb, bs, aS);
-  //cout << "LU\n"; print_matrix(nb, bs, aLU);
+  cout << "LU\n"; print_matrix(nb, bs, aLU);
   //cout << "L\n"; print_matrix(nb, bs, aL);
   //cout << "U\n"; print_matrix(nb, bs, aU);
   //cout << "L*U\n"; print_matrix(nb, bs, aM);

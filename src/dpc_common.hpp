@@ -11,7 +11,7 @@
 
 #include <CL/sycl.hpp>
 
-  class NEOGPUDeviceSelector : public cl::sycl::device_selector {
+  class CustomDeviceSelector : public cl::sycl::device_selector {
   public:
     int operator()(const cl::sycl::device &Device) const override {
       using namespace cl::sycl::info;

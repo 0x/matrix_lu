@@ -244,7 +244,7 @@ double matrix_delta(int nb,int bs,double **a,double **b)
 {
     double delta = 0.0;
  
-#pragma omp parallel for reduction(max:delta)
+//#pragma omp parallel for reduction(max:delta)
         for (int i = 0; i < nb * nb; i++)
         {
             double d = proc_delta(bs, bs, a[i], b[i]);
@@ -269,8 +269,8 @@ void print_matrix(int nb,int bs,double **a)
  
 int main()
 {
-        const int nb = 3; // number of blocks: nb*nb
-        const int bs = 3; // block size: bs*bs
+        const int nb = 50; // number of blocks: nb*nb
+        const int bs = 50; // block size: bs*bs
  
         double **aS = allocate_blocked_matrix(nb, bs); // source matrix
         double **aLU = allocate_blocked_matrix(nb, bs); // LU matrix
@@ -291,7 +291,7 @@ int main()
  
         struct timeval tv;
        
-#pragma omp parallel
+//s#pragma omp parallel
 #pragma omp single
     {
         time_start(&tv);
@@ -300,14 +300,14 @@ int main()
  
         t1 = time_stop_start(&tv);
     }
- 
+double delta = matrix_delta(nb, bs, aS, aLU);
               
-            printf("Source\n"); print_matrix(nb,bs,aS);
-            printf("LU\n"); print_matrix(nb,bs,aLU);
+            //printf("Source\n"); print_matrix(nb,bs,aS);
+            //printf("LU\n"); print_matrix(nb,bs,aLU);
            // printf("L\n"); print_matrix(nb,bs,aL);
            // printf("U\n"); print_matrix(nb,bs,aU);
            // printf("L*U\n"); print_matrix(nb,bs,aM);
-            //std::cout << "Delta: " << delta << std::endl;
+            std::cout << "Delta: " << delta << std::endl;
 
             free_blocked_matrix(aS);
             free_blocked_matrix(aLU);

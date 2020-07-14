@@ -37,13 +37,13 @@ int main() {
 
 
 
-  NEOGPUDeviceSelector Selector;
-  
+  // CustomDeviceSelector Selector;
+  cpu_selector d_selector;
   // Initialize the device queue with the default selector. The device queue is
   // used to enqueue kernels. It encapsulates all states needed for execution.
   try {
     
-    queue q(Selector, dpc_common::exception_handler);
+    queue q(d_selector, dpc_common::exception_handler);
 
     cout << "Device: " << q.get_device().get_info<info::device::name>() << "\n";
 
