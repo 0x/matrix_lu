@@ -130,7 +130,7 @@ double proc_delta(int ny, int nx, double *a, double *b)
   for (int i = 0; i < ny * nx; i++)
   {
     double d = fabs(a[i] - b[i]);
-    delta = delta >= d ? delta : d;
+    delta = (delta >= d) ? delta : d;
   }
   return delta;
 }
@@ -251,7 +251,7 @@ double matrix_delta(int nb, int bs, double **a, double **b)
   for (int i = 0; i < nb * nb; i++)
   {
     double d = proc_delta(bs, bs, a[i], b[i]);
-    delta = delta >= d ? delta : d;
+    delta = (delta >= d) ? delta : d;
   }
   return delta;
 }
@@ -270,18 +270,18 @@ void print_matrix(int nb, int bs, double **a)
  
 int main()
 {
-  constexpr int nb = 3;  // Number of blocks: nb*nb
-  constexpr int bs = 3;  // Block size: bs*bs
-  
-  queue q(default_selector{}, dpc_common::exception_handler);
+  constexpr int nb = 32;  // Number of blocks: nb*nb
+  constexpr int bs = 32;  // Block size: bs*bs
+    dpc_common::TimeInterval matrixLUBlock;
+    cpu_selector d_selector;
+  queue q(d_selector, dpc_common::exception_handler);
   cout << "Device: " << q.get_device().get_info<info::device::name>() << "\n";
     
   double **aS = allocate_blocked_matrix(nb, bs);  // Source matrix
-    
+  double **aLU = allocate_blocked_matrix(nb, bs);
+  
   cout << "Problem size: S(" << nb * bs << "," << nb * bs << ")\n";
   cout << "Block size: (" << bs << "," << bs << ")\n";
-  
-  dpc_common::TimeInterval matrixLUBlock;
   
   auto a = (double*(*)[nb][nb]) aS;
   
@@ -299,6 +299,7 @@ int main()
 		  aS[i * nb + i][j * bs + j] = nb * bs;
 	  }
 	}
+  copy_matrix(nb, bs, aS, aLU);
   
   for (int i_glob = 0; i_glob < nb; i_glob++)
   {
@@ -335,7 +336,7 @@ int main()
       });
     }
     /*
-       auto A = (double(*)[bs][bs]) (*a)[i][i];
+       auto A = (double(*)[bs][bs]) (*a)[i_glob][i_glob];
        for (int i = 0; i < bs; i++)
        {
         for (int j = i + 1; j < bs; j++)
@@ -343,10 +344,10 @@ int main()
  
        for (int j = i + 1; j < bs; j++)
           for (int k = i + 1; k < bs; k++) 
-        	  (*A)[j][k] -= (*A)[j][i] * (*aa)[i][k];
-       } 
-  */
-       
+        	  (*A)[j][k] -= (*A)[j][i] * (*A)[i][k];
+      
+      }
+       */
     for (int k = i_glob + 1; k < nb; k++)
     {
     	// proc_u(bs, bs, (*a)[i][i], (*a)[j][i]);
@@ -373,15 +374,15 @@ int main()
     	    }
         });
       });
-      /*
-      auto aa = (double(*)[bs][bs]) (*a)[i][i];
-      auto au = (double(*)[bs][bs]) (*a)[i][k];
+     /*
+      auto aa = (double(*)[bs][bs]) (*a)[i_glob][i_glob];
+      auto au = (double(*)[bs][bs]) (*a)[i_glob][k];
   
       for (int i = 0; i < bs; i++)
         for (int j = i + 1; j < bs; j++)
           for (int k = 0; k < bs; k++)
             (*au)[j][k] -= (*aa)[j][i] * (*au)[i][k];
-      */
+     */
     }     
             
     for (int j = i_glob + 1; j < nb; j++)
@@ -405,16 +406,16 @@ int main()
           int col = index[1];
 
           // Compute the result of one element of AG
-          AL[row][row] /= AA[col][col];
+          AL[row][row] /= A[col][col];
           for (int k_loc = row + 1; k_loc < width_a; k_loc++) {
-    	      AL[row][k_loc] -=  AL[row][col] * AA[col][k_loc];
+    	      AL[row][k_loc] -=  AL[row][col] * A[col][k_loc];
     	    }
         });
       });
       
       /*
-    	auto aa = (double(*)[bs][bs]) (*a)[i][i];
-      auto al = (double(*)[bs][bs]) (*a)[j][i];
+    	auto aa = (double(*)[bs][bs]) (*a)[i_glob][i_glob];
+      auto al = (double(*)[bs][bs]) (*a)[j][i_glob];
 
       for (int i = 0; i < bs; i++)
         for (int j = 0; j < bs; j++)
@@ -429,7 +430,7 @@ int main()
 	    {
 	      // proc_g(bs, bs, bs, (*a)[j][i], (*a)[i][k], (*a)[j][k]);
 	      // It works
-	      //buffer al(reinterpret_cast<double *>((*a)[j][i]), range(bs, bs));
+	      buffer al(reinterpret_cast<double *>((*a)[j][i_glob]), range(bs, bs));
 	      buffer au(reinterpret_cast<double *>((*a)[i_glob][k]), range(bs, bs));
 	      buffer ag(reinterpret_cast<double *>((*a)[j][k]), range(bs, bs));
 	      
@@ -459,12 +460,12 @@ int main()
   }
   
   cout << "Time matrixLUBlock: " << matrixLUBlock.Elapsed() << std::endl;
-  
+  cout <<"delta: " << matrix_delta(nb, bs, aLU, aS) << std::endl;
   int result;
   cout << "Result of matrix LU-decomposition using DPC++: "; 
   // result = VerifyResult(nb, bs, aLU);
    
-  cout << "Source\n"; print_matrix(nb, bs, aS);
+ // cout << "Source\n"; print_matrix(nb, bs, aS);
  
   free_blocked_matrix(aS);
  

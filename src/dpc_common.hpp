@@ -19,7 +19,7 @@
       const std::string DeviceName = Device.get_info<device::name>();
       const std::string DeviceVendor = Device.get_info<device::vendor>();
  	    std::cout << DeviceName << " " << Device.is_gpu() << std::endl;
-      return Device.is_cpu() && (DeviceName.find("Corce") != std::string::npos);
+      return Device.is_gpu() && (DeviceName.find("NEO") != std::string::npos);
     }
   };
   

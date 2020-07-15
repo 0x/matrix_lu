@@ -38,14 +38,8 @@ int main() {
 
 
   dpc_common::TimeInterval matrixLUDPCPP;
-  
-  /**
-   * Select device. (gpu_selector, cpu_selector)
-   */
-   
   //CustomDeviceSelector Selector;
-  gpu_selector d_selector; 
-  
+  gpu_selector d_selector;
   // Initialize the device queue with the default selector. The device queue is
   // used to enqueue kernels. It encapsulates all states needed for execution.
   try {

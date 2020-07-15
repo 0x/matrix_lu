@@ -1,66 +1,149 @@
 //
-//  matrix_lu_block.cpp
+//  matrix_lu_block_dpcpp.cpp
 //  matrix_lu
 //
 
+#include <CL/sycl.hpp>
 #include <iostream>
+#include <limits>
 #include "dpc_common.hpp"
  
 using namespace std;
 using namespace sycl;
+
+gpu_selector d_selector;
+queue q(d_selector, dpc_common::exception_handler);
  
 // in: a[n][n] : lu-decomposition
 void proc_lu(const int n, double *a1d)
 {
-  auto a = (double(*)[n][n]) a1d;
+  buffer a(a1d, range(n, n));
   
   for (int i = 0; i < n; i++)
-    for (int j = i + 1; j < n; j++)
-    {
-      (*a)[j][i] /= (*a)[i][i];
-      for (int k = i + 1; k < n; k++) 
-      	(*a)[j][k] -= (*a)[j][i] * (*a)[i][k];
-    }
+  {
+    // Division step 
+    // Submit command group to queue to division step LU-decomposition matrix S (source)
+    q.submit([&](handler &h) {
+
+      auto A = a.get_access<access::mode::read_write>(h);
+      
+      h.parallel_for(range(n - i - 1), [=](id<1> index) {
+        int j = i + 1 + index;
+      	A[j][i] /= A[i][i];
+      });
+    });
+    
+    // Elimination step
+    // Submit command group to queue to elimination step LU-decomposition matrix S (source)
+    q.submit([&](handler &h) {
+
+      auto A = a.get_access<access::mode::read_write>(h);
+
+      h.parallel_for(range(n - i - 1), [=](id<1> index) {
+        int j = i + 1 + index;
+        for (int k = i + 1; k < n; k++)
+        {
+          A[j][k] -= A[j][i] * A[i][k];
+        }
+      });
+    });
+  }
 }
 
  // in: (*a)[ny][ny], inout: au[ny][nx]
 void proc_u(const int ny, const int nx, double *a1d, double *au1d)
 {
-  auto a = (double(*)[ny][ny]) a1d;
-  auto au = (double(*)[ny][nx]) au1d;
-  
-  for (int i = 0; i < ny; i++)
-    for (int j = i + 1; j < ny; j++)
-      for (int k = 0; k < nx; k++)
-        (*au)[j][k] -= (*a)[j][i] * (*au)[i][k];
+  buffer a(a1d, range(ny, ny));
+  buffer au(au1d, range(ny, nx));
+
+  q.submit([&](handler &h) {
+    // Read from al and au, write to ag
+    auto A = a.get_access<access::mode::read>(h);
+    auto AU = au.get_access<access::mode::read_write>(h);
+    
+	  // Execute kernel.
+    h.parallel_for(range(ny, nx), [=](id<2> index) {
+      // Get global position in Y direction.
+      int row = index[0];
+      // Get global position in X direction.
+      int col = index[1];
+
+      // Compute the result of one element of AL
+      for (int j = row + 1; j < ny; j++) {
+	      AU[j][col] -=  A[j][row] * A[row][col];
+	    }
+    });
+  });
 }
 
 // in: (*a)[nx][nx], inout: al[ny][nx]
 void proc_l(const int ny, const int nx, double *a1d, double *al1d)
 {
-  auto a = (double(*)[nx][nx]) a1d;
-  auto al = (double(*)[ny][nx]) al1d;
+	buffer a(a1d, range(nx, nx));
+	buffer al(al1d, range(ny, nx));
   
-  for (int i = 0; i < nx; i++)
-    for (int j = 0; j < ny; j++)
-    {
-      (*al)[j][i] /= (*a)[i][i];
-      for (int k = i + 1; k < nx; k++) 
-      	(*al)[j][k] -=  (*al)[j][i] * (*a)[i][k];
-    }
+  q.submit([&](handler &h) {
+    // Read from al and au, write to ag
+    auto A = a.get_access<access::mode::read>(h);
+    auto AL = al.get_access<access::mode::read_write>(h);
+    
+	  // Execute kernel.
+    h.parallel_for(range(nx, ny), [=](id<2> index) {
+      // Get global position in Y direction.
+      int row = index[0];
+      // Get global position in X direction.
+      int col = index[1];
+
+      // Compute the result of one element of AL
+      AL[col][row] /= A[row][row];
+    });
+  });
+  q.submit([&](handler &h) {
+    // Read from al and au, write to ag
+    auto A = a.get_access<access::mode::read>(h);
+    auto AL = al.get_access<access::mode::read_write>(h);
+    
+	  // Execute kernel.
+    h.parallel_for(range(nx, ny), [=](id<2> index) {
+      // Get global position in Y direction.
+      int row = index[0];
+      // Get global position in X direction.
+      int col = index[1];
+
+      // Compute the result of one element of AL
+      for (int k = row + 1; k < nx; k++) {
+	      AL[col][k] -=  AL[col][row] * A[row][k];
+	    }
+    });
+  });
 }
 
 // in: al[ny][n],au[n][nx], inout: ag[ny][nx] : ag -= al*au
 void proc_g(const int ny, const int nx, const int n, double *al1d, double *au1d, double *ag1d)
 {
-  auto al = (double(*)[ny][n ]) al1d;
-  auto au = (double(*)[n ][nx]) au1d;
-  auto ag = (double(*)[ny][nx]) ag1d;
+  buffer al((al1d), range(ny, n));
+  buffer au((au1d), range(n, nx));
+  buffer ag((ag1d), range(ny, nx));
   
-  for (int j = 0; j < ny; j++)
-    for (int i = 0; i < n; i++)
-      for (int k = 0; k < nx; k++) 
-      	(*ag)[j][k] -= (*al)[j][i] * (*au)[i][k];
+  q.submit([&](handler &h) {
+    // Read from al and au, write to ag
+    auto AL = al.get_access<access::mode::read>(h);
+    auto AU = au.get_access<access::mode::read>(h);
+    auto AG = ag.get_access<access::mode::read_write>(h);
+
+    // Execute kernel.
+    h.parallel_for(range(ny, nx), [=](id<2> index) {
+      // Get global position in Y direction.
+      int row = index[0];
+      // Get global position in X direction.
+      int col = index[1];
+
+      // Compute the result of one element of AG
+      for (int k = 0; k < n; k++) {
+        AG[row][col] -= AL[row][k] * AU[k][col];
+      }
+    });
+  });
 }
 
 // in: a[ny][n],b[n][nx], inout: c[ny][nx] : c += a*b
@@ -128,7 +211,7 @@ double proc_delta(int ny, int nx, double *a, double *b)
   for (int i = 0; i < ny * nx; i++)
   {
     double d = fabs(a[i] - b[i]);
-    delta = delta >= d ? delta : d;
+    delta = (delta >= d) ? delta : d;
   }
   return delta;
 }
@@ -249,7 +332,7 @@ double matrix_delta(int nb, int bs, double **a, double **b)
   for (int i = 0; i < nb * nb; i++)
   {
     double d = proc_delta(bs, bs, a[i], b[i]);
-    delta = delta >= d ? delta : d;
+    delta = (delta >= d) ? delta : d;
   }
   return delta;
 }
@@ -266,51 +349,44 @@ void print_matrix(int nb, int bs, double **a)
     }
 }
  
-
 int main()
 {
-  const int nb = 256;  // Number of blocks: nb*nb
-  const int bs = 4;  // Block size: bs*bs
+  constexpr int nb = 256;  // Number of blocks: nb*nb
+  constexpr int bs = 4;  // Block size: bs*bs
+ 
+  cout << "Device: " << q.get_device().get_info<info::device::name>() << "\n";
+    
+  double **aS = allocate_blocked_matrix(nb, bs);  // Source matrix
+  double **aLU = allocate_blocked_matrix(nb, bs);
   
   cout << "Problem size: S(" << nb * bs << "," << nb * bs << ")\n";
   cout << "Block size: (" << bs << "," << bs << ")\n";
   
-  double **aS = allocate_blocked_matrix(nb, bs);  // Source matrix
-  double **aLU= allocate_blocked_matrix(nb, bs);  // LU matrix
-  double **aL = allocate_blocked_matrix(nb, bs);  // L matrix
-  double **aU = allocate_blocked_matrix(nb, bs);  // U matrix
-  double **aM = allocate_blocked_matrix(nb, bs);  // Matrix after multiplication
- 
-  // Set initial matrix
+  // set initial matrix
   fill_matrix(nb, bs, aS, 1.0);
   for (int i = 0; i < nb; i++)
-    for (int j = 0; j < bs; j++)
-      aS[i * nb + i][j * bs + j] = nb * bs;
- 
+      for (int j = 0; j < bs; j++)
+          aS[i * nb + i][j * bs + j] = nb * bs;
+/*
+     cl::sycl::intel::fpga_selector
+    cl::sycl::intel::fpga_emulator_selector
+    cl::sycl::cpu_selector
+    cl::sycl::gpu_selector
+*/
   copy_matrix(nb, bs, aS, aLU);
- 
+  
   dpc_common::TimeInterval matrixLUBlock;
   LU_decomposition(nb, bs, aLU);
   cout << "Time matrixLUBlock: " << matrixLUBlock.Elapsed() << std::endl;
- 
-  get_lower_matrix(nb, bs, aLU, aL);
-  get_upper_matrix(nb, bs, aLU, aU);
- 
-  dpc_common::TimeInterval matrixMul;
-  matrix_multiplication(nb, bs, aL, aU, aM);
-  cout << "Time matrixMul: " << matrixMul.Elapsed() << std::endl;
- 
-  //cout << "Source\n"; print_matrix(nb, bs, aS);
-  //cout << "LU\n"; print_matrix(nb, bs, aLU);
-  //cout << "L\n"; print_matrix(nb, bs, aL);
-  //cout << "U\n"; print_matrix(nb, bs, aU);
-  //cout << "L*U\n"; print_matrix(nb, bs, aM);
+  
+  cout <<"delta: " << matrix_delta(nb, bs, aLU, aS) << std::endl;
+  int result;
+  cout << "Result of matrix LU-decomposition using DPC++: "; 
+  // result = VerifyResult(nb, bs, aLU);
+   
+ // cout << "Source\n"; print_matrix(nb, bs, aS);
  
   free_blocked_matrix(aS);
-  free_blocked_matrix(aLU);
-  free_blocked_matrix(aL);
-  free_blocked_matrix(aU);
-  free_blocked_matrix(aM);
  
-  return 0;
+  return result;
 }
