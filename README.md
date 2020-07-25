@@ -39,7 +39,7 @@ OpenMP offload implementation explained.
 ## License  
 This code sample is licensed under MIT license. 
 
-### How to build for DPC++ on Linux  
+### How to build example on Linux  
    * Build the program using Make  
     cd matrix_lu &&  
     make all  
@@ -49,28 +49,6 @@ This code sample is licensed under MIT license.
 
    * Clean the program  
     make clean 
-
-### How to Build for OpenMP on Linux  
-   * Build the program using Make  
-    cd matrix_lu &&  
-    make build_omp  
-
-   * Run the program  
-    make run_omp  
-
-   * Clean the program  
-    make clean
-
-### How to build for DPC++ on Windows
-The OpenMP offload target is not supported on Windows yet.
-
-#### Command Line using nmake
-   Build matrix_lu DPCPP version
-   * nmake -f Makefile.win build_dpcpp
-   * nmake -f Makefile.win run_dpcpp  
-
-### How to build for OpenMP on Windows
-The OpenMP offload target is not supported on Windows at this time.
 
 ## Running the Sample
 
