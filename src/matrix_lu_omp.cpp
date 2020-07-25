@@ -4,6 +4,7 @@
 //
 //  Created by Vitaly Koynov on 02/09/20.
 //  Copyright © 2020 Vitaly Koynov. All rights reserved.
+//  SPDX-License-Identifier: MIT
 //
 
 #include <math.h>
@@ -12,27 +13,12 @@
 #include <limits>
 #include <chrono>
 #include <stdlib.h>
+#include "dpc_common.hpp"
 
 using namespace std;
 
-namespace dpc_common {
-class TimeInterval {
- public:
-  TimeInterval() : start_(std::chrono::steady_clock::now()) {}
-
-  double Elapsed() {
-    auto now = std::chrono::steady_clock::now();
-    return std::chrono::duration_cast<Duration>(now - start_).count();
-  }
-
- private:
-  using Duration = std::chrono::duration<double>;
-  std::chrono::steady_clock::time_point start_;
-};
-}
-
 // Matrix size constants.
-constexpr int N = 2048    ;
+constexpr int N = 8192;
 
 /**
  * Each element of the product matrix c[i][j] is computed from a unique row and
@@ -61,8 +47,9 @@ int main(void) {
   dpc_common::TimeInterval matrixLuOpenMpCpu;
   MatrixLuOpenMpCpu(S);
   cout << "Time matrixMulOpenMpCpu: " << matrixLuOpenMpCpu.Elapsed() << std::endl;
+  
   cout << "Result of matrix lu-decomposition using OpenMP: ";
-  //Result1 = VerifyResult(S);
+  Result1 = VerifyResult(S);
 
   return Result1;
 }

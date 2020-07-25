@@ -1,13 +1,18 @@
 //
-// Created by ilya on 08.07.2020.
+//  matrix_lu_block_omp.cpp
+//  matrix_lu
+//
+//  Created by Vitaly Koynov on 02/08/20.
+//  Copyright © 2020 Sergey Kireev, Ilya Baranov. All rights reserved.
+//  SPDX-License-Identifier: MIT
 //
  
-#include<math.h>
-#include<stdlib.h>
-#include<sys/time.h>
+#include <math.h>
+#include <stdlib.h>
+#include <sys/time.h>
 #include <iostream>
  
-//------------------------------------------
+
 void time_start(struct timeval *tv) { gettimeofday(tv, NULL); }
 double time_stop_start(struct timeval *tv)
 {
@@ -27,7 +32,6 @@ double time_stop(struct timeval *tv)
 //------------------------------------------
  
 // in: a[n][n] : lu-decomposition
- 
 void proc_lu(const int n,double *a1d)
 {
 #pragma omp task depend(inout:a1d)
@@ -269,51 +273,47 @@ void print_matrix(int nb,int bs,double **a)
  
 int main()
 {
-        const int nb = 256; // number of blocks: nb*nb
-        const int bs = 4; // block size: bs*bs
- 
-        double **aS = allocate_blocked_matrix(nb, bs); // source matrix
-        double **aLU = allocate_blocked_matrix(nb, bs); // LU matrix
-        double **aL = allocate_blocked_matrix(nb, bs); // L matrix
-        double **aU = allocate_blocked_matrix(nb, bs); // U matrix
-        double **aM = allocate_blocked_matrix(nb, bs); // matrix after multiplication
- 
-        // set initial matrix
-        fill_matrix(nb, bs, aS, 1.0);
-        for (int i = 0; i < nb; i++)
-            for (int j = 0; j < bs; j++)
-                aS[i * nb + i][j * bs + j] = nb * bs;
- 
-        copy_matrix(nb, bs, aS, aLU);
- 
-        double t1,t2,t3,t4;
- 
- 
-        double delta = 0;
-       struct timeval tv;
- time_start(&tv);
+  const int nb = 4; // number of blocks: nb*nb
+  const int bs = 1024; // block size: bs*bs
+  std::cout << bs << std::endl;
+  double **aS = allocate_blocked_matrix(nb, bs); // source matrix
+  double **aLU = allocate_blocked_matrix(nb, bs); // LU matrix
+  double **aL = allocate_blocked_matrix(nb, bs); // L matrix
+  double **aU = allocate_blocked_matrix(nb, bs); // U matrix
+  double **aM = allocate_blocked_matrix(nb, bs); // matrix after multiplication
+
+  // set initial matrix
+  fill_matrix(nb, bs, aS, 1.0);
+  for (int i = 0; i < nb; i++)
+      for (int j = 0; j < bs; j++)
+          aS[i * nb + i][j * bs + j] = nb * bs;
+
+  copy_matrix(nb, bs, aS, aLU);
+
+  double t1,t2,t3,t4;
+
+
+  double delta = 0;
+  struct timeval tv;
+  time_start(&tv);
+
 #pragma omp parallel
 #pragma omp single
-    {
-        
-        LU_decomposition(nb, bs, aLU);
-        //delta = matrix_delta(nb, bs, aLU, aS);
- 
-     }
-      t1 = time_stop_start(&tv);
-          
-            //printf("Source\n"); print_matrix(nb,bs,aS);
-            //printf("LU\n"); print_matrix(nb,bs,aLU);
-           // printf("L\n"); print_matrix(nb,bs,aL);
-           // printf("U\n"); print_matrix(nb,bs,aU);
-           // printf("L*U\n"); print_matrix(nb,bs,aM);
-            std::cout << "Delta: " << t1 << std::endl;
+  {
+    LU_decomposition(nb, bs, aLU);
+    // delta = matrix_delta(nb, bs, aLU, aS);
+  }
+  
+  t1 = time_stop_start(&tv);
 
-            free_blocked_matrix(aS);
-            free_blocked_matrix(aLU);
-            free_blocked_matrix(aL);
-            free_blocked_matrix(aU);
-            free_blocked_matrix(aM);
-           
-    return 0;
+  std::cout << "Time: " << t1 << std::endl;
+  std::cout << "Delta: " << delta << std::endl;
+
+  free_blocked_matrix(aS);
+  free_blocked_matrix(aLU);
+  free_blocked_matrix(aL);
+  free_blocked_matrix(aU);
+  free_blocked_matrix(aM);
+     
+return 0;
 }

@@ -11,19 +11,8 @@
 
 #include <CL/sycl.hpp>
 
-  class CustomDeviceSelector : public cl::sycl::device_selector {
-  public:
-    int operator()(const cl::sycl::device &Device) const override {
-      using namespace cl::sycl::info;
-
-      const std::string DeviceName = Device.get_info<device::name>();
-      const std::string DeviceVendor = Device.get_info<device::vendor>();
- 	    std::cout << DeviceName << " " << Device.is_gpu() << std::endl;
-      return Device.is_gpu() && (DeviceName.find("NEO") != std::string::npos);
-    }
-  };
-  
 namespace dpc_common {
+
 // This exception handler with catch async exceptions
 static auto exception_handler = [](cl::sycl::exception_list eList) {
   for (std::exception_ptr const &e : eList) {
@@ -55,5 +44,5 @@ class TimeInterval {
   using Duration = std::chrono::duration<double>;
   std::chrono::steady_clock::time_point start_;
 };
-
+ 
 };  // namespace dpc_common

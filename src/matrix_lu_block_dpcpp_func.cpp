@@ -2,6 +2,10 @@
 //  matrix_lu_block_dpcpp.cpp
 //  matrix_lu
 //
+//  Created by Vitaly Koynov on 02/09/20.
+//  Copyright © 2020 Sergey Kireev, Vitaly Koynov. All rights reserved.
+//  SPDX-License-Identifier: MIT
+//
 
 #include <CL/sycl.hpp>
 #include <iostream>
@@ -11,7 +15,13 @@
 using namespace std;
 using namespace sycl;
 
-gpu_selector d_selector;
+//CustomDeviceSelector d_selector;  // Select default device (must be cpu)
+cpu_selector d_selector;  // Select default cpu device
+//gpu_selector d_selector;   // Select default gpu device
+ 
+// Initialize the device queue with the default selector, cpu_selector or gpu_selector. 
+// The device queue is used to enqueue kernels. 
+// It encapsulates all states needed for execution.
 queue q(d_selector, dpc_common::exception_handler);
  
 // in: a[n][n] : lu-decomposition
@@ -351,8 +361,8 @@ void print_matrix(int nb, int bs, double **a)
  
 int main()
 {
-  constexpr int nb = 256;  // Number of blocks: nb*nb
-  constexpr int bs = 4;  // Block size: bs*bs
+  const int nb = 16;  // Number of blocks: nb*nb
+  const int bs = 128;  // Block size: bs*bs
  
   cout << "Device: " << q.get_device().get_info<info::device::name>() << "\n";
     
@@ -362,17 +372,12 @@ int main()
   cout << "Problem size: S(" << nb * bs << "," << nb * bs << ")\n";
   cout << "Block size: (" << bs << "," << bs << ")\n";
   
-  // set initial matrix
+  // Set initial matrix
   fill_matrix(nb, bs, aS, 1.0);
   for (int i = 0; i < nb; i++)
       for (int j = 0; j < bs; j++)
           aS[i * nb + i][j * bs + j] = nb * bs;
-/*
-     cl::sycl::intel::fpga_selector
-    cl::sycl::intel::fpga_emulator_selector
-    cl::sycl::cpu_selector
-    cl::sycl::gpu_selector
-*/
+
   copy_matrix(nb, bs, aS, aLU);
   
   dpc_common::TimeInterval matrixLUBlock;
@@ -380,13 +385,13 @@ int main()
   cout << "Time matrixLUBlock: " << matrixLUBlock.Elapsed() << std::endl;
   
   cout <<"delta: " << matrix_delta(nb, bs, aLU, aS) << std::endl;
+  
   int result;
   cout << "Result of matrix LU-decomposition using DPC++: "; 
-  // result = VerifyResult(nb, bs, aLU);
-   
- // cout << "Source\n"; print_matrix(nb, bs, aS);
- 
+  //result = VerifyResult(nb, bs, aLU);
+  
   free_blocked_matrix(aS);
- 
-  return result;
+  free_blocked_matrix(aLU);
+
+  return 0;
 }

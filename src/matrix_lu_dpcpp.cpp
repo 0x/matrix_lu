@@ -2,6 +2,10 @@
 //  matrix_lu_dpcpp.cpp
 //  matrix_lu
 //
+//  Created by Vitaly Koynov on 02/09/20.
+//  Copyright © 2020 Vitaly Koynov. All rights reserved.
+//  SPDX-License-Identifier: MIT
+//
 
 #include <CL/sycl.hpp>
 #include <iostream>
@@ -18,7 +22,7 @@ using namespace sycl;
  */
 
 // Matrix size constants.
-constexpr int N = 4096;  // TODO: 2^ 
+constexpr int N = 8192;
 
 /**
  * Perform matrix multiplication on host to verify results from device.
@@ -26,9 +30,6 @@ constexpr int N = 4096;  // TODO: 2^
 int VerifyResult(double (*LU_back)[N]);
 
 int main() {
-
-
-  
   // Host memory buffer that device will write data back before destruction.
   double(*LU_back)[N] = new double[N][N];  // LU matrix
 
@@ -36,12 +37,16 @@ int main() {
   for (int i = 0; i < N; i++)
     for (int j = 0; j < N; j++) LU_back[i][j] = 0.0;
 
-
   dpc_common::TimeInterval matrixLUDPCPP;
-  //CustomDeviceSelector Selector;
-  gpu_selector d_selector;
-  // Initialize the device queue with the default selector. The device queue is
-  // used to enqueue kernels. It encapsulates all states needed for execution.
+
+  
+  //CustomDeviceSelector d_selector;  // Select default device (must be cpu)
+  cpu_selector d_selector;  // Select default cpu device
+  //gpu_selector d_selector;   // Select default gpu device
+  
+  // Initialize the device queue with the default selector, cpu_selector or gpu_selector. 
+  // The device queue is used to enqueue kernels. 
+  // It encapsulates all states needed for execution.
   try {
     
     queue q(d_selector, dpc_common::exception_handler);
@@ -49,8 +54,6 @@ int main() {
     cout << "Device: " << q.get_device().get_info<info::device::name>() << "\n";
 
     // Create 2D buffers for matrices, buffer LU is bound with host memory LU_back
-
-    // buffer<double, 2> LU(range(N, N));  // Source matrix
     buffer S(reinterpret_cast<double *>(LU_back), range(N, N));
 
     cout << "Problem size: S(" << N << "," << N << ")\n";
@@ -105,22 +108,10 @@ int main() {
 
   int result;
   cout << "Result of matrix LU-decomposition using DPC++: ";
-  
-  // DEBUG
-  /*
-  std::cout << std::endl;
-  for (int i = 0; i < N; i++)
-  {
-    for (int j = 0; j < N; j++)
-    {
-      std::cout << LU_back[i][j] << " ";
-    }
-    std::cout << std::endl;
-  }
-*/
-  //result = VerifyResult(LU_back);
+  result = VerifyResult(LU_back);
   
   cout << "Time matrixLUDPCPP: "  << matrixLUDPCPP.Elapsed() << std::endl;
+  
   delete[] LU_back;
   return result;
 }

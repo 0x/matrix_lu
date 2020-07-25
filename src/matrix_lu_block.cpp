@@ -2,6 +2,10 @@
 //  matrix_lu_block.cpp
 //  matrix_lu
 //
+//  Created by Vitaly Koynov on 02/09/20.
+//  Copyright © 2020 Sergey Kireev. All rights reserved.
+//  SPDX-License-Identifier: MIT
+//
 
 #include <iostream>
 #include "dpc_common.hpp"
@@ -292,7 +296,8 @@ int main()
   dpc_common::TimeInterval matrixLUBlock;
   LU_decomposition(nb, bs, aLU);
   cout << "Time matrixLUBlock: " << matrixLUBlock.Elapsed() << std::endl;
- 
+  cout <<"delta: " << matrix_delta(nb, bs, aLU, aS) << std::endl;
+  
   get_lower_matrix(nb, bs, aLU, aL);
   get_upper_matrix(nb, bs, aLU, aU);
  
