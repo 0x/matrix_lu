@@ -1,8 +1,9 @@
 # matrix_lu
 matrix_lu is a simple program that calculates LU-decomposition of a large matrix and
-verifies the results.  This program is implemented using two ways: 
+verifies the results.  This program is implemented using three ways: 
     1. Data Parallel C++ (DPC++)
     2. OpenMP (omp)
+    3. Block decomposition
 
 For comprehensive instructions regarding DPC++ Programming, go to https://software.intel.com/en-us/oneapi-programming-guide and search based on relevant terms noted in the comments.
   
